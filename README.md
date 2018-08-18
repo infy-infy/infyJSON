@@ -25,6 +25,10 @@ You might be wondering what these weird HObj types are. So, they are just wrappe
 You can access member functions of HOnj underlying object through '->' or just dereference/call value() method to get lvalue reference to object itself. **Remember**: HObj behaves like object on stack, so when you pass it as copy to function, underlying object will be copied, which can be pretty expensive - so don't forget to use references. HObjects are deleted at scope exit.
 Operator[] can be used on HObj without dereferencing (useful for JSON object (std::unordered_map) and array (std::vector)).
 
+## Debug
+
+If you're curious why JSON::parseFromFile() returns nullopt, you can define macro INFYJSON_DEBUG. This will reduce parsing speed a bit, but function call JSON::getDebugInfo() will return a number and contents of last parsed line. When macro isn't defined, function always returns "Last parsed line(1)".
+
 ## Support
 Visual Studio 15.8.0+
 
