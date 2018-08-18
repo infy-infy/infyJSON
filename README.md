@@ -22,7 +22,7 @@ if (json && json->is<JsonArrayHObj>()) {
 ```
 You might be wondering what these weird HObj types are. So, they are just wrappers around dynamically allocated objects and they behaves 100% like ordinary objects on stack. That's a solution to overcome a problem of passing incomplete types in std::unordered_map and preserve simple copy/move operations when it's needed.
 
-You can access member functions of HOnj underlying object through '->' or just dereference/call value() method to get lvalue reference to object itself. **Remember**: HObj behaves like object on stack, so when you pass it as copy to function, underlying object will be copied, which can be pretty expensive - so don't forget to use references. HObjects are deleted at scope exit.
+You can access member functions of HObj underlying object through '->' or just dereference/call value() method to get lvalue reference to object itself. **Remember**: HObj behaves like object on stack, so when you pass it as copy to function, underlying object will be copied, which can be pretty expensive - so don't forget to use references. HObjects are deleted at scope exit.
 Operator[] can be used on HObj without dereferencing (useful for JSON object (std::unordered_map) and array (std::vector)).
 
 If you're sure enough that your input is proper JSON without sudden EOFs, you can remove EOF checks in Parser.cpp at 11 and 12 lines.
@@ -32,6 +32,6 @@ If you're sure enough that your input is proper JSON without sudden EOFs, you ca
 If you're curious why JSON::parseFromFile() returns nullopt, you can define macro INFYJSON_DEBUG. This will reduce parsing speed a bit, but function call JSON::getDebugInfo() will return a number and contents of last parsed line. When macro isn't defined, function always returns "Last parsed line(1)".
 
 ## Support
-Visual Studio 15.8.0+
+Visual Studio 15.8.0 and higher.
 
 GCC 8.2 (latest at the moment) still doesn't support floating-point version of std::from_chars :(
