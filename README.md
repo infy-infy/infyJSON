@@ -20,7 +20,7 @@ if (json && json->is<JsonArrayHObj>()) {
 }
 ...
 ```
-You might be wondering what these weird HObj types are. So, they are just wrappers around dynamically allocated objects and they behaves 100% like ordinary objects on stack. That's a solution to overcome a problem of passing incomplete types in std::unordered_map and preserve simple copy/move operations when it's needed.
+You might be wondering what these weird HObj types are. So, they are just wrappers around dynamically allocated objects and they behave 100% like ordinary objects on stack. That's a solution to overcome a problem of passing incomplete types in std::unordered_map and preserve simple copy/move operations when it's needed.
 
 You can access member functions of HObj underlying object through '->' or just dereference/call value() method to get lvalue reference to object itself. **Remember**: HObj behaves like object on stack, so when you pass it as copy to function, underlying object will be copied, which can be pretty expensive - so don't forget to use references. HObjects are deleted at scope exit.
 Operator[] can be used on HObj without dereferencing (useful for JSON object (std::unordered_map) and array (std::vector)).
