@@ -27,4 +27,5 @@ Operator[] can be used on HObj without dereferencing (useful for JSON object (st
 
 ## Support
 Visual Studio 15.8.0+
+
 GCC 8.2 (latest at the moment) still doesn't support floating-point version of std::from_chars :(
