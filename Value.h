@@ -43,8 +43,6 @@ namespace JSON {
 				}(std::forward<Types>(args)...)
 			} {}
 
-			constexpr HeapObject(std::nullptr_t) noexcept : std::unique_ptr<T>{ nullptr } { };
-
 			~HeapObject() = default;
 
 			template<typename U>
@@ -61,12 +59,11 @@ namespace JSON {
 				return *this;
 			}
 
-			HeapObject& operator=(std::nullptr_t) noexcept {
-				std::unique_ptr<T>::reset();
-				return *this;
+			typename std::add_lvalue_reference_t<T> operator*() const {
+				return std::unique_ptr<T>::operator*();
 			}
 
-			typename std::add_lvalue_reference_t<T> operator*() const {
+			typename std::add_lvalue_reference_t<T> value() const {
 				return std::unique_ptr<T>::operator*();
 			}
 
