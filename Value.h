@@ -13,49 +13,74 @@ namespace JSON {
 
 	namespace _helpers {
 		
+		template<unsigned int N, typename T, typename ...Types>
+		struct get_type_at {
+			using type = typename get_type_at<N - 1, Types...>::type;
+		};
+
+		template<typename T, typename ...Types>
+		struct get_type_at<0, T, Types...> {
+			using type = T;
+		};
+
+		template<unsigned int N, typename ...Types>
+		using get_type_at_t = typename get_type_at<N, Types...>::type;
+
+		template<typename ClassType, typename ...ArgTypes>
+		using exclude_class_default_t = typename std::enable_if_t<
+			(sizeof...(ArgTypes) > 1) ||
+			(sizeof...(ArgTypes) == 1 &&
+			!std::is_same_v<ClassType&, get_type_at_t<0, ArgTypes...>> &&
+			!std::is_same_v<const ClassType, get_type_at_t<0, ArgTypes...>> &&
+			!std::is_convertible_v<get_type_at_t<0, ArgTypes...>, ClassType>)
+		>;
+
+		template<typename T, typename U> //https://stackoverflow.com/questions/31171682/type-trait-for-copying-cv-reference-qualifiers
+		struct copy_cv_reference
+		{
+		private:
+			using R = std::remove_reference_t<T>;
+			using U1 = std::conditional_t<std::is_const<R>::value, std::add_const_t<U>, U>;
+			using U2 = std::conditional_t<std::is_volatile<R>::value, std::add_volatile_t<U1>, U1>;
+			using U3 = std::conditional_t<std::is_lvalue_reference<T>::value, std::add_lvalue_reference_t<U2>, U2>;
+			using U4 = std::conditional_t<std::is_rvalue_reference<T>::value, std::add_rvalue_reference_t<U3>, U3>;
+		public:
+			using type = U4;
+		};
+
+		template<typename T, typename U>
+		using copy_cv_reference_t = typename copy_cv_reference<T, U>::type;
+
 		template<typename T>
-		class HeapObject : private std::unique_ptr<T>
+		class HeapObject final : private std::unique_ptr<T>
 		{
 		public:
-			constexpr HeapObject() noexcept : std::unique_ptr<T>{ std::make_unique<T>() } { };
+			HeapObject() noexcept : std::unique_ptr<T>{ std::make_unique<T>() } { };
 			explicit HeapObject(T* p) noexcept : std::unique_ptr<T>{ p } { };
 			HeapObject(std::unique_ptr<T>&& ptr) noexcept : std::unique_ptr<T>{ std::move(ptr) } { };
 			
-			template<typename U>
-			HeapObject(U&& arg) noexcept : std::unique_ptr<T>{ 
-				[](auto&& arg) -> decltype(auto) {
-					if constexpr (std::is_same_v<HeapObject, std::decay_t<U>>) {
-						if constexpr (std::is_lvalue_reference_v<U>) {						//standart copy constructor
-							return std::make_unique<T>(*arg);
-						} else {															//standart move constructor
-							return arg.release();
-						}
-					} else {																//constructor for everything else
-						return std::make_unique<T>(std::forward<U>(arg));
-					}
-				}(std::forward<U>(arg))	
-			} {}
+			HeapObject(const HeapObject& arg) noexcept : std::unique_ptr<T>{ std::make_unique<T>(*arg) } {}
+			
+			HeapObject(HeapObject&& arg) noexcept : std::unique_ptr<T>{ arg.release() } {}
 
-			template<typename... Types>
-			HeapObject(Types&&... args) noexcept : std::unique_ptr<T>{
-			[](auto&&... args) -> decltype(auto) {
-					return std::make_unique<T>(std::forward<Types>(args)...);
-				}(std::forward<Types>(args)...)
-			} {}
+			template<typename ...Types, typename = exclude_class_default_t<HeapObject, Types...>>
+			explicit HeapObject(Types&&... args) : std::unique_ptr<T>{ std::make_unique<T>(std::forward<Types>(args)...) } {}
 
 			~HeapObject() = default;
 
-			template<typename U>
+			HeapObject& operator=(const HeapObject& arg) {
+				std::unique_ptr<T>::operator=(std::make_unique<T>(*arg));
+				return *this;
+			}
+
+			HeapObject& operator=(HeapObject&& arg) {
+				std::unique_ptr<T>::reset(arg.release());
+				return *this;
+			}
+
+			template<typename U, typename = exclude_class_default_t<HeapObject, U>>
 			HeapObject& operator=(U&& arg) noexcept {
-				if constexpr (std::is_same_v<HeapObject, std::decay_t<U>>) {
-					if constexpr (std::is_lvalue_reference_v<U>) {						//standart copy assigment
-						std::unique_ptr<T>::operator=(std::make_unique<T>(*arg));
-					} else {															//standart move assigment
-						std::unique_ptr<T>::reset(arg.release());
-					}
-				} else {																//assigment for everything else
-					*std::unique_ptr<T>::get() = std::forward<U>(arg);
-				}
+				*std::unique_ptr<T>::get() = std::forward<U>(arg);
 				return *this;
 			}
 
@@ -114,8 +139,12 @@ namespace JSON {
 
 		Value() = default;
 
-		template<typename T>
-		Value(T&& right);
+		Value(const Value& arg) : _data{ arg._data } {};
+
+		Value(Value&& arg) : _data{ std::move(arg._data) } {};
+
+		template<typename U, typename = _helpers::exclude_class_default_t<Value, U>>
+		explicit Value(U&& arg);
 
 		~Value() = default;
         
@@ -140,53 +169,36 @@ namespace JSON {
 
     };
 
-	
-
-	namespace _helpers {
-		template<typename T, typename U> //https://stackoverflow.com/questions/31171682/type-trait-for-copying-cv-reference-qualifiers
-		struct copy_cv_reference
-		{
-		private:
-			using R = std::remove_reference_t<T>;
-			using U1 = std::conditional_t<std::is_const<R>::value, std::add_const_t<U>, U>;
-			using U2 = std::conditional_t<std::is_volatile<R>::value, std::add_volatile_t<U1>, U1>;
-			using U3 = std::conditional_t<std::is_lvalue_reference<T>::value, std::add_lvalue_reference_t<U2>, U2>;
-			using U4 = std::conditional_t<std::is_rvalue_reference<T>::value, std::add_rvalue_reference_t<U3>, U3>;
-		public:
-			using type = U4;
-		};
-
-		template<typename T, typename U>
-		using copy_cv_reference_t = typename copy_cv_reference<T, U>::type;
-	}
-
-	template<typename T>
-	Value::Value(T&& right) : _data{
+	template<typename U, typename>
+	Value::Value(U&& arg) : _data{
 		[](auto&& arg) -> decltype(auto) {
-			if constexpr (std::is_same_v<std::decay_t<T>, Value>) {												//handling default
-				return std::forward<_helpers::copy_cv_reference_t<T, Value::Data>>(arg._data);
-			} else if constexpr (std::is_arithmetic_v<T> && !std::is_same_v<std::decay_t<T>, bool>) {			//all arithmetic to double
-				return JsonNumberHObj{ static_cast<double>(std::forward<T>(arg)) };
-			} else if constexpr (std::is_same_v<std::decay_t<T>, char*> || std::is_same_v<std::decay_t<T>, const char*>) { //all char* to string
+			using decayed_u = std::decay_t<U>;
+			if constexpr (std::is_arithmetic_v<decayed_u> && !std::is_same_v<decayed_u, bool>) {
+				//all arithmetic to double
+				return JsonNumberHObj{ static_cast<double>(std::forward<U>(arg)) };
+			} else if constexpr (std::is_same_v<decayed_u, char*> || std::is_same_v<decayed_u, const char*>) {
+				//all char* to string
 				return JsonStringHObj(arg);
-			} else {																							//everything else
-				return _helpers::HeapObject<std::decay_t<T>>{ std::forward<T>(arg) };
+			} else {
+				//everything else
+				return _helpers::HeapObject<decayed_u>{ std::forward<U>(arg) };
 			}
-		}(std::forward<T>(right))
+		}(std::forward<U>(arg))
 	} {}
 
 	template<typename T>
 	Value& Value::operator=(T&& right) {
-		if constexpr (std::is_same_v<std::decay_t<T>, Value>) {
+		using decayed_u = std::decay_t<T>;
+		if constexpr (std::is_same_v<std::decay_t<decayed_u>, Value>) {
 			if (this != &right) {
 				_data = std::forward<_helpers::copy_cv_reference_t<T, Value::Data>>(right._data);
 			}
-		} else if constexpr (std::is_arithmetic_v<T> && !std::is_same_v<std::decay_t<T>, bool>) {
+		} else if constexpr (std::is_arithmetic_v<decayed_u> && !std::is_same_v<decayed_u, bool>) {
 			_data = JsonNumberHObj{ static_cast<double>(std::forward<T>(right)) };
-		} else if constexpr (std::is_same_v<std::decay_t<T>, char*> || std::is_same_v<std::decay_t<T>, const char*>) {
+		} else if constexpr (std::is_same_v<decayed_u, char*> || std::is_same_v<decayed_u, const char*>) {
 			_data = JsonStringHObj{ std::string(right) };
 		} else {
-			_data = _helpers::HeapObject<std::decay_t<T>>{ std::forward<T>(right) };
+			_data = _helpers::HeapObject<decayed_u>{ std::forward<T>(right) };
 		}
 		return *this;
 	}
