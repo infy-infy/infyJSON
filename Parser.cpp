@@ -26,13 +26,17 @@ namespace JSON {
 		};
 
 		std::unique_ptr<char[]> _buf;
-		char* _pos, *_last;
+		const char* _pos;
+		const char* _last;
 		bool _eof;
 		std::string _lastReadLine;
 		size_t _lineNumber;
 
 		void init(std::string_view path) {
 			_lineNumber = 1;
+#ifdef INFYJSON_DEBUG
+			_lastReadLine.clear();
+#endif
 			std::ifstream input(path.data(), std::ios::in | std::ios::binary | std::ios::ate);
 			unsigned int length = static_cast<unsigned int>(input.tellg());
 			if (length != 0) {
@@ -86,14 +90,14 @@ namespace JSON {
 			{
 			case BasicValue::STRING:
 			{
-				char* v1 = _pos;
+				const char* v1 = _pos;
 				bool isBadChar{ false };
 				LastQuoteFinder finder;
 				auto search = [&](const char c) {
 					isBadChar = isBadChar || (c >= '\x00' && c <= '\x1F');
 					return finder.check(c);
 				};
-				char* v2 = std::find_if(v1, _last, search);
+				const char* v2 = std::find_if(v1, _last, search);
 
 				if (v2 + 1 == _last || v2 == _last) { // so, json which contains only string without last quote won't crash programm
 					_eof = true;
@@ -102,12 +106,12 @@ namespace JSON {
 #ifdef INFYJSON_DEBUG
 				_lastReadLine.append(v1, v2);
 #endif
-				return isBadChar ? std::pair<const char*, const char*>(nullptr, nullptr) : std::pair<const char*, const char*>(v1, v2);
+				return isBadChar ? std::pair<const char*, const char*>(nullptr, nullptr) : std::pair(v1, v2);
 			}
 			case BasicValue::NUMBER:
 			{
-				char* v1 = _pos;
-				char* v2 = std::find_if_not(v1, _last, [](const char c) {
+				const char* v1 = _pos;
+				const char* v2 = std::find_if_not(v1, _last, [](const char c) {
 					return isdigit(c) || c == '.' || c == 'e' || c == 'E' || c == '+' || c == '-';
 				});
 				if (v2 == _last) {
@@ -118,7 +122,7 @@ namespace JSON {
 #ifdef INFYJSON_DEBUG
 				_lastReadLine.append(v1, v2);
 #endif
-				return std::pair<const char*, const char*>(v1, v2);
+				return std::pair(v1, v2);
 			}
 			default:
 				return std::pair<const char*, const char*>();
@@ -399,6 +403,25 @@ namespace JSON {
 		}
 	}
 
+	std::pair<JSON::Value, int> parse() {
+		std::pair<JSON::Value, int> p;
+		char c = getFirstNonSpaceChar();
+		int code = 0;
+		switch (c)
+		{
+		case '{':
+			code = readMap(p.first);
+			break;
+		case '[':
+			code = readArray(p.first);
+			break;
+		default:
+			if (isString(c, p.first) || isWord(c, p.first) || isNumber(c, p.first)) code = 1;
+			break;
+		}
+		p.second = code;
+		return p;
+	}
 
 	std::optional<Value> parseFromFile(std::string_view path) {
 
@@ -408,25 +431,10 @@ namespace JSON {
 			return std::nullopt;
 		}
 
-		JSON::Value val;
-		char c = getFirstNonSpaceChar();
-		int code = 0;
-		switch (c)
-		{
-		case '{':
-			code = readMap(val);
-			break;
-		case '[':
-			code = readArray(val);
-			break;
-		default:
-			if (isString(c, val) || isWord(c, val) || isNumber(c, val)) code = 1;
-			break;
-		}
-		
-		//auto& ll = _parser::_lastReadLine;
+		auto [val, code] = parse();
+
 		_parser::_buf.reset();
-		if (code == 1) return val;
+		if (code == 1) return std::optional{std::move(val)};
 		return std::nullopt;
 	}
 
@@ -434,4 +442,16 @@ namespace JSON {
 		return _parser::getLastReadLine();
 	}
 
+	namespace literals {
+		std::optional<Value> operator"" _json(const char * json, std::size_t size) {
+			if (size > 0) {
+				_parser::_eof = false;
+				_parser::_pos = json;
+				_parser::_last = json + size;
+				auto[val, code] = parse();
+				if (code == 1) return std::optional{std::move(val)};
+			}
+			return std::nullopt;
+		}
+	}
 }
