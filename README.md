@@ -19,6 +19,18 @@ if (json && json->is<JsonArrayHObj>()) {
   }
 }
 ...
+std::string s = getResponseFromServer();
+auto json2 = JSON::parseFromString(s); // supports const char* as well
+...
+using namespace JSON::literals;
+auto json3 = "[2.55, "laurel", "yanny", true, null]"_json;
+auto json4 = R"(
+{
+  "first" : 42,
+  "second" : ["myCoolStringInCoolArray", -93.33, false]
+}
+)"_json;
+...
 ```
 You might be wondering what these weird HObj types are. So, they are just wrappers around dynamically allocated objects and they behave 100% like ordinary objects on stack. That's a solution to overcome a problem of passing incomplete types in std::unordered_map and preserve simple copy/move operations when it's needed.
 
