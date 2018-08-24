@@ -37,7 +37,7 @@ namespace JSON {
 #ifdef INFYJSON_DEBUG
 			_lastReadLine.clear();
 #endif
-			std::ifstream input(path.data(), std::ios::in | std::ios::binary | std::ios::ate);
+			std::ifstream input(std::string(path), std::ios::in | std::ios::binary | std::ios::ate);
 			unsigned int length = static_cast<unsigned int>(input.tellg());
 			if (length != 0) {
 				_buf = std::unique_ptr<char[]>(new char[length]);
@@ -435,6 +435,17 @@ namespace JSON {
 
 		_parser::_buf.reset();
 		if (code == 1) return std::optional{std::move(val)};
+		return std::nullopt;
+	}
+
+	std::optional<Value> parseFromString(std::string_view jsonString) {
+		if (jsonString.size() > 0) {
+			_parser::_eof = false;
+			_parser::_pos = jsonString.data();
+			_parser::_last = jsonString.data() + jsonString.size();
+			auto[val, code] = parse();
+			if (code == 1) return std::optional{ std::move(val) };
+		}
 		return std::nullopt;
 	}
 

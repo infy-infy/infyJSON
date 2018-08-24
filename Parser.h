@@ -10,6 +10,7 @@
 namespace JSON {
 
 	std::optional<Value> parseFromFile(std::string_view path);
+	std::optional<Value> parseFromString(std::string_view jsonString);
 	std::string getDebugInfo();
 
 	namespace literals {
