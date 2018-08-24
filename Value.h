@@ -26,13 +26,20 @@ namespace JSON {
 		template<unsigned int N, typename ...Types>
 		using get_type_at_t = typename get_type_at<N, Types...>::type;
 
+		template<typename T>
+		struct remove_cv_ref {
+			using type = std::remove_reference_t<std::remove_cv_t<T>>;
+		};
+
+		template<typename T>
+		using remove_cv_ref_t = typename remove_cv_ref<T>::type;
+
 		template<typename ClassType, typename ...ArgTypes>
 		using exclude_class_default_t = typename std::enable_if_t<
 			(sizeof...(ArgTypes) > 1) ||
 			(sizeof...(ArgTypes) == 1 &&
-			!std::is_same_v<ClassType&, get_type_at_t<0, ArgTypes...>> &&
-			!std::is_same_v<const ClassType, get_type_at_t<0, ArgTypes...>> &&
-			!std::is_convertible_v<get_type_at_t<0, ArgTypes...>, ClassType>)
+			!std::is_same_v< remove_cv_ref_t<ClassType>, remove_cv_ref_t<get_type_at_t<0, ArgTypes...>> > &&
+			!std::is_convertible_v<remove_cv_ref_t<get_type_at_t<0, ArgTypes...>>, remove_cv_ref_t<ClassType>>)
 		>;
 
 		template<typename T, typename U> //https://stackoverflow.com/questions/31171682/type-trait-for-copying-cv-reference-qualifiers
