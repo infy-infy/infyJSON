@@ -42,6 +42,13 @@ namespace JSON {
 			!std::is_convertible_v<remove_cv_ref_t<get_type_at_t<0, ArgTypes...>>, remove_cv_ref_t<ClassType>>)
 		>;
 
+		template <typename T, typename = void>
+		struct is_iterable : std::false_type {};
+		template <typename T>
+		struct is_iterable<T, std::void_t<decltype(std::declval<T>().begin()),
+			decltype(std::declval<T>().end())>>
+			: std::true_type {};
+
 		template<typename T, typename U> //https://stackoverflow.com/questions/31171682/type-trait-for-copying-cv-reference-qualifiers
 		struct copy_cv_reference
 		{
@@ -74,6 +81,16 @@ namespace JSON {
 			explicit HeapObject(Types&&... args) : std::unique_ptr<T>{ std::make_unique<T>(std::forward<Types>(args)...) } {}
 
 			~HeapObject() = default;
+
+			template<typename = std::enable_if_t<is_iterable<T>::value>>
+			auto begin() {
+				return std::unique_ptr<T>::get()->begin();
+			}
+
+			template<typename = std::enable_if_t<is_iterable<T>::value>>
+			auto end() {
+				return std::unique_ptr<T>::get()->end();
+			}
 
 			HeapObject& operator=(const HeapObject& arg) {
 				std::unique_ptr<T>::operator=(std::make_unique<T>(*arg));
