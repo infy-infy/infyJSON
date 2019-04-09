@@ -183,10 +183,10 @@ namespace JSON {
 		ValueHObj& operator[](const size_t right);
        
 		template<typename T>
-		inline T& getAs();
+		inline decltype(auto) getAs();
 
 		template<typename T>
-		inline const T& getAs() const;
+		inline decltype(auto) getAs() const;
 
 		template<typename T, typename... Types>
 		T& emplace(Types&&... args);
@@ -228,13 +228,39 @@ namespace JSON {
 	}
 
 	template<typename T>
-	inline T& Value::getAs() {
-		return std::get<std::decay_t<T>>(_data);
+	inline decltype(auto) Value::getAs() {
+		using decayed_t = std::decay_t<T>;
+		if constexpr (std::is_same_v<decayed_t, double>) {
+			return std::get<JsonNumberHObj>(_data).value();
+		} else if constexpr (std::is_arithmetic_v<decayed_t> && !std::is_same_v<decayed_t, bool>) {
+			return static_cast<decayed_t>(std::get<JsonNumberHObj>(_data).value());
+		} else if constexpr (std::is_same_v<std::string, decayed_t>) {
+			return std::get<JsonStringHObj>(_data).value();
+		} else if constexpr (std::is_same_v<decayed_t, bool>) {
+			return std::get<JsonBooleanHObj>(_data).value();
+		} else {
+			return std::get<decayed_t>(_data);
+		}	
 	}
-	
+
 	template<typename T>
-	inline const T& Value::getAs() const {
-		return std::get<std::decay_t<T>>(_data);
+	inline decltype(auto) Value::getAs() const {
+		using decayed_t = std::decay_t<T>;
+		if constexpr (std::is_same_v<decayed_t, double>) {
+			return std::get<JsonNumberHObj>(_data).value();
+		}
+		else if constexpr (std::is_arithmetic_v<decayed_t> && !std::is_same_v<decayed_t, bool>) {
+			return static_cast<decayed_t>(std::get<JsonNumberHObj>(_data).value());
+		}
+		else if constexpr (std::is_same_v<std::string, decayed_t>) {
+			return std::get<JsonStringHObj>(_data).value();
+		}
+		else if constexpr (std::is_same_v<decayed_t, bool>) {
+			return std::get<JsonBooleanHObj>(_data).value();
+		}
+		else {
+			return std::get<decayed_t>(_data);
+		}
 	}
 
 	template<typename T, typename... Types>

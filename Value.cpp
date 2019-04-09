@@ -37,10 +37,7 @@ namespace JSON {
 			_data = JsonObjectHObj{};
 		}
 		auto& map = getAs<JsonObjectHObj>();
-		if (map->count(right) == 0) {
-			map[right] = Value{};
-		}
-		return map[right];
+		return map->try_emplace(right).first->second;
     }
 
 }
