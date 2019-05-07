@@ -13,6 +13,8 @@ namespace JSON {
 
 	namespace _helpers {
 		
+		inline auto emptyString = ""s;
+
 		template<unsigned int N, typename T, typename ...Types>
 		struct get_type_at {
 			using type = typename get_type_at<N - 1, Types...>::type;
@@ -187,6 +189,14 @@ namespace JSON {
 
 		template<typename T>
 		inline decltype(auto) getAs() const;
+
+		template<typename T>
+		inline T getByKey(const std::string& key, const T& def = T()) {
+			if (hasKey(key)) {
+				return getAs<JsonObjectHObj>()[key]->getAs<T>();
+			}
+			return def;
+		}
 
 		template<typename T, typename... Types>
 		T& emplace(Types&&... args);
