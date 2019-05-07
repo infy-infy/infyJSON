@@ -12,8 +12,6 @@
 namespace JSON {
 
 	namespace _helpers {
-		
-		inline auto emptyString = ""s;
 
 		template<unsigned int N, typename T, typename ...Types>
 		struct get_type_at {
