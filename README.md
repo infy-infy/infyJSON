@@ -8,13 +8,13 @@ All you need is to add **Parser.h**, **Parser.cpp**, **Value.h**, **Value.cpp** 
 using namespace JSON;
 ...
 std::optional<Value> json = JSON::parseFromFile("myFile.json");  
-if (json && json->is<JsonArrayHObj>()) {
-  for (const auto& val : json->getAs<JsonArrayHObj>().value()) {
-  	if (val->is<JsonObjectHObj>()) {
-  		auto& object = val->getAs<JsonObjectHObj>();
-  		std::cout << object["name"]->getAs<JsonStringHObj>().value() << '\n';
-  		std::cout << object["number"]->getAs<JsonNumberHObj>().value() << '\n';
-  		std::cout << "Is cool? " << object["is_cool"]->getAs<JsonBooleanHObj>().value() << '\n';
+if (json && json->is<JArray>()) {
+  for (const auto& val : json->getAs<JArray>().value()) {
+  	if (val->is<JObject>()) {
+  		auto& object = val->getAs<JObject>();
+  		std::cout << object["name"]->getAs<JString>().value() << '\n';
+  		std::cout << object["number"]->getAs<JNumber>().value() << '\n';
+  		std::cout << "Is cool? " << object["is_cool"]->getAs<JBool>().value() << '\n';
   	}
   }
 }
@@ -32,10 +32,10 @@ auto json4 = R"(
 )"_json;
 ...
 ```
-You might be wondering what these weird HObj types are. So, they are just wrappers around dynamically allocated objects and they behave 100% like ordinary objects on stack. That's a solution to overcome a problem of passing incomplete types in std::unordered_map and preserve simple copy/move operations when it's needed.
+You might be wondering what these weird J<Something> types are. So, they are just wrappers around dynamically allocated objects and they behave 100% like ordinary objects on stack. That's a solution to overcome a problem of passing incomplete types in std::unordered_map and preserve simple copy/move operations when it's needed.
 
-You can access member functions of HObj underlying object through '->' or just dereference/call value() method to get lvalue reference to object itself. **Remember**: HObj behaves like object on stack, so when you pass it as copy to function, underlying object will be copied, which can be pretty expensive - so don't forget to use references. HObjects are deleted at scope exit.
-Operator[] can be used on HObj without dereferencing (useful for JSON object (std::unordered_map) and array (std::vector)).
+You can access member functions of J<Something> underlying object through '->' or just dereference/call value() method to get lvalue reference to object itself. **Remember**: J<Something> behaves like object on stack, so when you pass it as copy to function, underlying object will be copied, which can be pretty expensive - so don't forget to use references. J<Something> are deleted at scope exit.
+Operator[] can be used on J<Something> without dereferencing (useful for JSON object (std::unordered_map) and array (std::vector)).
 
 If you're sure enough that your input is proper JSON without sudden EOFs, you can remove EOF checks in Parser.cpp at 11 and 12 lines.
 
