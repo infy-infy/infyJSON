@@ -143,17 +143,17 @@ namespace JSON {
 
 	class Value;
 
-	using ValueHObj = _helpers::HeapObject<Value>;
-	using JsonStringHObj = _helpers::HeapObject<std::string>;
-	using JsonObjectHObj = _helpers::HeapObject<std::unordered_map<std::string, ValueHObj>>;
-	using JsonArrayHObj = _helpers::HeapObject<std::vector<ValueHObj>>;
-	using JsonNumberHObj = _helpers::HeapObject<double>;
-	using JsonBooleanHObj = _helpers::HeapObject<bool>;
-	using JsonEmpty = std::nullptr_t;
+	using JValue = _helpers::HeapObject<Value>;
+	using JString = _helpers::HeapObject<std::string>;
+	using JObject = _helpers::HeapObject<std::unordered_map<std::string, JValue>>;
+	using JArray = _helpers::HeapObject<std::vector<JValue>>;
+	using JNumber = _helpers::HeapObject<double>;
+	using JBool= _helpers::HeapObject<bool>;
+	using JEmpty = std::nullptr_t;
 
     class Value {	
     private:
-		using Data = std::variant<JsonEmpty, JsonObjectHObj, JsonArrayHObj, JsonStringHObj, JsonNumberHObj, JsonBooleanHObj>;
+		using Data = std::variant<JEmpty, JObject, JArray, JString, JNumber, JBool>;
 		Data _data;
 		
 	public:
@@ -179,8 +179,11 @@ namespace JSON {
 		bool operator!=(const Value& right) const;
 
 		bool hasKey(const std::string& right) const;
-        ValueHObj& operator[](const std::string& right);
-		ValueHObj& operator[](const size_t right);
+		JValue& operator[](const std::string& right);
+		JValue& operator[](const size_t right);
+
+		const JValue& operator[](const std::string& right) const;
+		const JValue& operator[](const size_t right) const;
        
 		template<typename T>
 		inline decltype(auto) getAs();
@@ -191,7 +194,7 @@ namespace JSON {
 		template<typename T>
 		inline T getByKey(const std::string& key, const T& def = T()) {
 			if (hasKey(key)) {
-				return getAs<JsonObjectHObj>()[key]->getAs<T>();
+				return getAs<JObject>()[key]->getAs<T>();
 			}
 			return def;
 		}
@@ -199,6 +202,7 @@ namespace JSON {
 		template<typename T, typename... Types>
 		T& emplace(Types&&... args);
 
+		void write(std::string& result);
     };
 
 	template<typename U, typename>
@@ -207,10 +211,10 @@ namespace JSON {
 			using decayed_u = std::decay_t<U>;
 			if constexpr (std::is_arithmetic_v<decayed_u> && !std::is_same_v<decayed_u, bool>) {
 				//all arithmetic to double
-				return JsonNumberHObj{ static_cast<double>(std::forward<U>(arg)) };
+				return JNumber{ static_cast<double>(std::forward<U>(arg)) };
 			} else if constexpr (std::is_same_v<decayed_u, char*> || std::is_same_v<decayed_u, const char*>) {
 				//all char* to string
-				return JsonStringHObj(arg);
+				return JString(arg);
 			} else {
 				//everything else
 				return _helpers::HeapObject<decayed_u>{ std::forward<U>(arg) };
@@ -226,9 +230,9 @@ namespace JSON {
 				_data = std::forward<_helpers::copy_cv_reference_t<T, Value::Data>>(right._data);
 			}
 		} else if constexpr (std::is_arithmetic_v<decayed_u> && !std::is_same_v<decayed_u, bool>) {
-			_data = JsonNumberHObj{ static_cast<double>(std::forward<T>(right)) };
+			_data = JNumber{ static_cast<double>(std::forward<T>(right)) };
 		} else if constexpr (std::is_same_v<decayed_u, char*> || std::is_same_v<decayed_u, const char*>) {
-			_data = JsonStringHObj{ std::string(right) };
+			_data = JString{ std::string(right) };
 		} else {
 			_data = _helpers::HeapObject<decayed_u>{ std::forward<T>(right) };
 		}
@@ -239,13 +243,13 @@ namespace JSON {
 	inline decltype(auto) Value::getAs() {
 		using decayed_t = std::decay_t<T>;
 		if constexpr (std::is_same_v<decayed_t, double>) {
-			return std::get<JsonNumberHObj>(_data).value();
+			return std::get<JNumber>(_data).value();
 		} else if constexpr (std::is_arithmetic_v<decayed_t> && !std::is_same_v<decayed_t, bool>) {
-			return static_cast<decayed_t>(std::get<JsonNumberHObj>(_data).value());
+			return static_cast<decayed_t>(std::get<JNumber>(_data).value());
 		} else if constexpr (std::is_same_v<std::string, decayed_t>) {
-			return std::get<JsonStringHObj>(_data).value();
+			return std::get<JString>(_data).value();
 		} else if constexpr (std::is_same_v<decayed_t, bool>) {
-			return std::get<JsonBooleanHObj>(_data).value();
+			return std::get<JBool>(_data).value();
 		} else {
 			return std::get<decayed_t>(_data);
 		}	
@@ -255,16 +259,16 @@ namespace JSON {
 	inline decltype(auto) Value::getAs() const {
 		using decayed_t = std::decay_t<T>;
 		if constexpr (std::is_same_v<decayed_t, double>) {
-			return std::get<JsonNumberHObj>(_data).value();
+			return std::get<JNumber>(_data).value();
 		}
 		else if constexpr (std::is_arithmetic_v<decayed_t> && !std::is_same_v<decayed_t, bool>) {
-			return static_cast<decayed_t>(std::get<JsonNumberHObj>(_data).value());
+			return static_cast<decayed_t>(std::get<JNumber>(_data).value());
 		}
 		else if constexpr (std::is_same_v<std::string, decayed_t>) {
-			return std::get<JsonStringHObj>(_data).value();
+			return std::get<JString>(_data).value();
 		}
 		else if constexpr (std::is_same_v<decayed_t, bool>) {
-			return std::get<JsonBooleanHObj>(_data).value();
+			return std::get<JBool>(_data).value();
 		}
 		else {
 			return std::get<decayed_t>(_data);

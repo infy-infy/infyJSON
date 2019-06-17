@@ -241,7 +241,7 @@ namespace JSON {
 		{	
 			if (std::isdigit(c) || c == '-') {
 				auto range = _parser::getBasicValueBorders(_parser::NUMBER);
-				auto& number = *o.emplace<JsonNumberHObj>();
+				auto& number = *o.emplace<JNumber>();
 				auto res = std::from_chars(range.first, range.second, number);
 				return res.ptr == range.second;
 			}
@@ -307,17 +307,17 @@ namespace JSON {
 			auto range = _parser::getBasicValueBorders(_parser::STRING);
 			if (range.first) {
 				std::string str(range.first, range.second);
-				o.emplace<JsonStringHObj>(std::move(str));
+				o.emplace<JString>(std::move(str));
 				return true;
 			}
 			return false;	
 		}
 
-		int readKeyValue(char c, JsonObjectHObj& map);
+		int readKeyValue(char c, JObject& map);
 
 		int readMap(Value& o)
 		{
-			auto& map = o.emplace<JsonObjectHObj>();
+			auto& map = o.emplace<JObject>();
 			GET_NEXT_NON_SPACE(char c);
 
 			if (c == '}') { //empty map
@@ -341,7 +341,7 @@ namespace JSON {
 
 		int readArray(Value& o)
 		{
-			auto& arr = o.emplace<JsonArrayHObj>();
+			auto& arr = o.emplace<JArray>();
 
 			GET_NEXT_NON_SPACE(char c);
 
@@ -378,7 +378,7 @@ namespace JSON {
 			}
 		}
 
-		int readKeyValue(char c, JsonObjectHObj& map)
+		int readKeyValue(char c, JObject& map)
 		{
 			Value key, o;
 
@@ -398,7 +398,7 @@ namespace JSON {
 				res = 1;
 			}
 
-			map->try_emplace(std::move(*key.getAs<JsonStringHObj>()), std::move(o));
+			map->try_emplace(std::move(*key.getAs<JString>()), std::move(o));
 			return res;
 		}
 	}
