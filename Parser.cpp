@@ -85,7 +85,7 @@ namespace JSON {
 			}
 		};
 
-		std::pair<const char*, const char*> getBasicValueBorders(BasicValue val) {
+		std::pair<const char*, const char*> getBasicValueBorders(BasicValue val, bool& hasFloatingPoint) {
 			switch (val)
 			{
 			case BasicValue::STRING:
@@ -111,8 +111,12 @@ namespace JSON {
 			case BasicValue::NUMBER:
 			{
 				const char* v1 = _pos;
-				const char* v2 = std::find_if_not(v1, _last, [](const char c) {
-					return isdigit(c) || c == '.' || c == 'e' || c == 'E' || c == '+' || c == '-';
+				const char* v2 = std::find_if_not(v1, _last, [&hasFloatingPoint](const char c) {
+					if (c == '.') {
+						hasFloatingPoint = true;
+						return true;
+					}
+					return isdigit(c) || c == 'e' || c == 'E' || c == '+' || c == '-';
 				});
 				if (v2 == _last) {
 					_eof = true;
@@ -240,9 +244,16 @@ namespace JSON {
 		bool isNumber(char c, Value& o)
 		{	
 			if (std::isdigit(c) || c == '-') {
-				auto range = _parser::getBasicValueBorders(_parser::NUMBER);
-				auto& number = *o.emplace<JNumber>();
-				auto res = std::from_chars(range.first, range.second, number);
+				bool hasPoint = false;
+				auto range = _parser::getBasicValueBorders(_parser::NUMBER, hasPoint);
+				std::from_chars_result res;
+				if (hasPoint) {
+					auto& number = o.emplace<JNumber>(0.0).value();
+					res = std::from_chars(range.first, range.second, number);
+				} else {
+					auto& number = o.emplace<JNumber>(0).value();
+					res = std::from_chars(range.first, range.second, number);
+				}
 				return res.ptr == range.second;
 			}
 			return false;
@@ -304,7 +315,8 @@ namespace JSON {
 		bool isString(char c, Value& o)
 		{
 			if (c != '\"') return false;
-			auto range = _parser::getBasicValueBorders(_parser::STRING);
+			bool dummy; //it's ok that it's uninitialized
+			auto range = _parser::getBasicValueBorders(_parser::STRING, dummy);
 			if (range.first) {
 				std::string str(range.first, range.second);
 				o.emplace<JString>(std::move(str));

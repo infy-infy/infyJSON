@@ -147,13 +147,15 @@ namespace JSON {
 	using JString = _helpers::HeapObject<std::string>;
 	using JObject = _helpers::HeapObject<std::unordered_map<std::string, JValue>>;
 	using JArray = _helpers::HeapObject<std::vector<JValue>>;
-	using JNumber = _helpers::HeapObject<double>;
+	struct JNumber {};
 	using JBool= _helpers::HeapObject<bool>;
 	using JEmpty = std::nullptr_t;
 
     class Value {	
     private:
-		using Data = std::variant<JEmpty, JObject, JArray, JString, JNumber, JBool>;
+		using JInt = _helpers::HeapObject<int64_t>;
+		using JDouble = _helpers::HeapObject<double>;
+		using Data = std::variant<JEmpty, JObject, JArray, JString, JInt, JDouble, JBool>;
 		Data _data;
 		
 	public:
@@ -200,7 +202,7 @@ namespace JSON {
 		}
 
 		template<typename T, typename... Types>
-		T& emplace(Types&&... args);
+		auto& emplace(Types&&... args);
 
 		void write(std::string& result);
     };
@@ -210,8 +212,11 @@ namespace JSON {
 		[](auto&& arg) -> decltype(auto) {
 			using decayed_u = std::decay_t<U>;
 			if constexpr (std::is_arithmetic_v<decayed_u> && !std::is_same_v<decayed_u, bool>) {
-				//all arithmetic to double
-				return JNumber{ static_cast<double>(std::forward<U>(arg)) };
+				if constexpr (std::is_integral_v<decayed_u>) {
+					return JInt{ static_cast<int64_t>(std::forward<U>(arg)) };
+				} else {
+					return JDouble{ static_cast<double>(std::forward<U>(arg)) };
+				}		
 			} else if constexpr (std::is_same_v<decayed_u, char*> || std::is_same_v<decayed_u, const char*>) {
 				//all char* to string
 				return JString(arg);
@@ -230,7 +235,12 @@ namespace JSON {
 				_data = std::forward<_helpers::copy_cv_reference_t<T, Value::Data>>(right._data);
 			}
 		} else if constexpr (std::is_arithmetic_v<decayed_u> && !std::is_same_v<decayed_u, bool>) {
-			_data = JNumber{ static_cast<double>(std::forward<T>(right)) };
+			if constexpr (std::is_integral_v<decayed_u>) {
+				_data = JInt{ static_cast<int64_t>(std::forward<U>(arg)) };
+			}
+			else {
+				_data = JDouble{ static_cast<double>(std::forward<U>(arg)) };
+			}
 		} else if constexpr (std::is_same_v<decayed_u, char*> || std::is_same_v<decayed_u, const char*>) {
 			_data = JString{ std::string(right) };
 		} else {
@@ -242,10 +252,15 @@ namespace JSON {
 	template<typename T>
 	inline decltype(auto) Value::getAs() {
 		using decayed_t = std::decay_t<T>;
-		if constexpr (std::is_same_v<decayed_t, double>) {
-			return std::get<JNumber>(_data).value();
-		} else if constexpr (std::is_arithmetic_v<decayed_t> && !std::is_same_v<decayed_t, bool>) {
-			return static_cast<decayed_t>(std::get<JNumber>(_data).value());
+		if constexpr ((std::is_same_v<decayed_t, JNumber> || std::is_arithmetic_v<decayed_t>) && !std::is_same_v<decayed_t, bool>) {
+			return std::visit([](const auto& arg) -> decayed_t {
+				using visiter_type = std::decay_t<decltype(arg)>;
+				if constexpr (std::is_same_v<visiter_type, JDouble> || std::is_same_v<visiter_type, JInt>) {
+					return static_cast<decayed_t>(arg.value());
+				} else {
+					throw std::bad_variant_access();
+				}
+			}, _data);
 		} else if constexpr (std::is_same_v<std::string, decayed_t>) {
 			return std::get<JString>(_data).value();
 		} else if constexpr (std::is_same_v<decayed_t, bool>) {
@@ -258,11 +273,16 @@ namespace JSON {
 	template<typename T>
 	inline decltype(auto) Value::getAs() const {
 		using decayed_t = std::decay_t<T>;
-		if constexpr (std::is_same_v<decayed_t, double>) {
-			return std::get<JNumber>(_data).value();
-		}
-		else if constexpr (std::is_arithmetic_v<decayed_t> && !std::is_same_v<decayed_t, bool>) {
-			return static_cast<decayed_t>(std::get<JNumber>(_data).value());
+		if constexpr ((std::is_same_v<decayed_t, JNumber> || std::is_arithmetic_v<decayed_t>) && !std::is_same_v<decayed_t, bool>) {
+			return std::visit([](const auto& arg) -> decayed_t {
+				using visiter_type = std::decay_t<decltype(arg)>;
+				if constexpr (std::is_same_v<visiter_type, JDouble> || std::is_same_v<visiter_type, JInt>) {
+					return static_cast<decayed_t>(arg.value());
+				}
+				else {
+					throw std::bad_variant_access();
+				}
+			}, _data);
 		}
 		else if constexpr (std::is_same_v<std::string, decayed_t>) {
 			return std::get<JString>(_data).value();
@@ -276,8 +296,17 @@ namespace JSON {
 	}
 
 	template<typename T, typename... Types>
-	T& Value::emplace(Types&&... args) {
-		return _data.emplace<T>(std::forward<Types>(args)...);
+	auto& Value::emplace(Types&&... args) {
+		if constexpr (std::is_same_v<std::decay_t<T>, JNumber>) {
+			static_assert(sizeof...(Types) == 1);
+			if constexpr (std::conjunction_v<std::is_integral<std::decay_t<Types>>...>) {
+				return _data.emplace<JInt>(std::forward<Types>(args)...);
+			} else {
+				return _data.emplace<JDouble>(std::forward<Types>(args)...);
+			}
+		} else {
+			return _data.emplace<T>(std::forward<Types>(args)...);
+		}	
 	}
 }
 

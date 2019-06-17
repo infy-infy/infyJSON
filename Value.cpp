@@ -75,7 +75,7 @@ namespace JSON {
 			else if constexpr (std::is_same_v<decayed_t, JString>) {
 				result += '\"' + arg.value() + '\"';
 			}
-			else if constexpr (std::is_same_v<decayed_t, JNumber>) {
+			else if constexpr (std::is_same_v<decayed_t, JDouble> || std::is_same_v<decayed_t, JInt>) {
 				result += std::to_string(arg.value());
 			}
 			else if constexpr (std::is_same_v<decayed_t, JBool>) {
