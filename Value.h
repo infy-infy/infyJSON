@@ -252,11 +252,12 @@ namespace JSON {
 	template<typename T>
 	inline decltype(auto) Value::getAs() {
 		using decayed_t = std::decay_t<T>;
-		if constexpr ((std::is_same_v<decayed_t, JNumber> || std::is_arithmetic_v<decayed_t>) && !std::is_same_v<decayed_t, bool>) {
-			return std::visit([](const auto& arg) -> decayed_t {
+		if constexpr ((std::is_same_v<decayed_t, JNumber> || std::is_arithmetic_v<decayed_t>) && !std::is_same_v<decayed_t, bool>) {		
+			using visiter_return_t = std::conditional_t<std::is_same_v<decayed_t, JNumber>, double, decayed_t>;
+			return std::visit([](const auto& arg) -> visiter_return_t {
 				using visiter_type = std::decay_t<decltype(arg)>;
 				if constexpr (std::is_same_v<visiter_type, JDouble> || std::is_same_v<visiter_type, JInt>) {
-					return static_cast<decayed_t>(arg.value());
+					return static_cast<visiter_return_t>(arg.value());
 				} else {
 					throw std::bad_variant_access();
 				}
@@ -274,10 +275,11 @@ namespace JSON {
 	inline decltype(auto) Value::getAs() const {
 		using decayed_t = std::decay_t<T>;
 		if constexpr ((std::is_same_v<decayed_t, JNumber> || std::is_arithmetic_v<decayed_t>) && !std::is_same_v<decayed_t, bool>) {
-			return std::visit([](const auto& arg) -> decayed_t {
+			using visiter_return_t = std::conditional_t<std::is_same_v<decayed_t, JNumber>, double, decayed_t>;
+			return std::visit([](const auto& arg) -> visiter_return_t {
 				using visiter_type = std::decay_t<decltype(arg)>;
 				if constexpr (std::is_same_v<visiter_type, JDouble> || std::is_same_v<visiter_type, JInt>) {
-					return static_cast<decayed_t>(arg.value());
+					return static_cast<visiter_return_t>(arg.value());
 				}
 				else {
 					throw std::bad_variant_access();
